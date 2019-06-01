@@ -1,0 +1,144 @@
+---
+title: "Peer_graded_Assignment2"
+author: "Toru Hasegawa"
+date: "2019/6/1"
+output: html_document
+---
+#The Worst Weather Event for Population Health and Economic
+
+##Synopsis
+In this assignment, I analyze  [Storm Data](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2) based on the [National Weather Service Storm Data](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf).
+
+And the subject of this analysis is clearing up following point,
+1. What type of event is the worst for population health
+2. What type of event is the worst for economic
+
+
+##Data Processing
+```{r download_data, echo=TRUE}
+download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2",destfile = "Stome_data.bz2")
+```
+
+```{r extract_and_setdata, echo=TRUE}
+storm_data <- read.csv("Stome_data.csv.bz2")
+
+head(storm_data)
+```
+
+
+```{r prepare_data, echo=TRUE}
+columnlist <- c("EVTYPE", "FATALITIES", "INJURIES","PROPDMG","PROPDMGEXP", "CROPDMG","CROPDMGEXP")
+df <- storm_data[,columnlist]
+
+summary(df)
+```
+
+```{r check_data, echo=TRUE}
+table(is.na(df))
+#The dataset don't have NA data.
+```
+
+
+##Results
+
+1. Across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to population health?
+
+```{r barplot_health, echo=TRUE}
+FatalitiesPerEvtype <- aggregate(FATALITIES~EVTYPE, df, FUN=sum)
+InjuriesPerEvtype <-aggregate(INJURIES~EVTYPE, df, FUN=sum)
+
+#Search the most harmful event for health
+FatalitiesPerEvtype$EVTYPE[which.max(FatalitiesPerEvtype$FATALITIES)]
+InjuriesPerEvtype$EVTYPE[which.max(InjuriesPerEvtype$INJURIES)]
+
+#make barplot of top6 harmful event
+sort <- order(FatalitiesPerEvtype$FATALITIES, decreasing = TRUE)
+Ordered_Fatalities <- FatalitiesPerEvtype[sort,]
+sort2 <- order(InjuriesPerEvtype$INJURIES, decreasing = TRUE)
+Ordered_Injuries <- InjuriesPerEvtype[sort2,]
+
+par(mfrow=c(2,1))
+barplot(head(Ordered_Fatalities$FATALITIES), names.arg = head(Ordered_Fatalities$EVTYPE), cex.names = 0.5, main="Event of Fatalities")
+barplot(head(Ordered_Injuries$INJURIES), names.arg = head(Ordered_Injuries$EVTYPE), cex.names = 0.5, main="Event of Injuries")
+```
+
+As result, the top of harmful event to population health is "TORNADO"" in both of fatalities and injuries aspect.
+
+
+2. Across the United States, which types of events have the greatest economic consequences?
+```{r check_levels, echo=TRUE}
+summary(df$PROPDMGEXP)
+summary(df$CROPDMGEXP)
+```
+
+Based on the above results, this data have a lot of metric prefix.
+Exchange those metric prerfix to number
+```{r exchange_metric_perfix, echo=TRUE}
+#exchange crop data
+df$CROPDMGEXP <- as.character(df$CROPDMGEXP)
+df$CROPDMGEXP[df$CROPDMGEXP == "0" | df$CROPDMGEXP == "2" ] <- "10"
+df$CROPDMGEXP[df$CROPDMGEXP == "?" | df$CROPDMGEXP == "" ] <- "0"
+df$CROPDMGEXP[df$CROPDMGEXP == "B" ] <- "1000000000"
+df$CROPDMGEXP[df$CROPDMGEXP == "m" | df$CROPDMGEXP == "M" ] <- "1000000"
+df$CROPDMGEXP[df$CROPDMGEXP == "k" | df$CROPDMGEXP == "K" ] <- "1000"
+df$CROPDMGEXP <- as.numeric(df$CROPDMGEXP)
+df$CROPDMG2 <- df$CROPDMGEXP * df$CROPDMG
+
+#exchange prop data
+df$PROPDMGEXP <- as.character(df$PROPDMGEXP)
+df$PROPDMGEXP[df$PROPDMGEXP == "0" | df$PROPDMGEXP == "1" ] <- "10"
+df$PROPDMGEXP[df$PROPDMGEXP == "2" | df$PROPDMGEXP == "3" ] <- "10"
+df$PROPDMGEXP[df$PROPDMGEXP == "4" | df$PROPDMGEXP == "5" ] <- "10"
+df$PROPDMGEXP[df$PROPDMGEXP == "6" | df$PROPDMGEXP == "7" ] <- "10"
+df$PROPDMGEXP[df$PROPDMGEXP == "8" ] <- "10"
+df$PROPDMGEXP[df$PROPDMGEXP == "?" | df$PROPDMGEXP == "" ] <- "0"
+df$PROPDMGEXP[df$PROPDMGEXP == "-" ] <- "0"
+df$PROPDMGEXP[df$PROPDMGEXP == "+" ] <- "1"
+df$PROPDMGEXP[df$PROPDMGEXP == "B" ] <- "1000000000"
+df$PROPDMGEXP[df$PROPDMGEXP == "m" | df$PROPDMGEXP == "M" ] <- "1000000"
+df$PROPDMGEXP[df$PROPDMGEXP == "k" | df$PROPDMGEXP == "K" ] <- "1000"
+df$PROPDMGEXP[df$PROPDMGEXP == "h" | df$PROPDMGEXP == "H" ] <- "100"
+df$PROPDMGEXP <- as.numeric(df$PROPDMGEXP)
+df$PROPDMG2 <- df$PROPDMGEXP * df$PROPDMG
+```
+
+
+```{r worst_event_for_prop, echo=TRUE}
+#prepare dataset to make ranking
+prop_sum <- aggregate(PROPDMG2~EVTYPE, df,FUN=sum)
+
+#Search the worst event for prop
+sort3 <- order(prop_sum$PROPDMG2, decreasing = TRUE)
+Ordered_prop_sum <- prop_sum[sort3,]
+head(Ordered_prop_sum)
+```
+
+As result, it is obvious that the worst event type for property is "FLOOD".
+The damage of economic is 144.5 billion $.
+
+
+```{r worst_event_for_crop, echo=TRUE}
+#prepare dataset to make ranking
+crop_sum <- aggregate(CROPDMG2~EVTYPE, df, FUN=sum)
+
+#Search the worst event for crop
+sort4 <- order(crop_sum$CROPDMG2, decreasing = TRUE)
+Ordered_crop_sum <- crop_sum[sort4,]
+head(Ordered_crop_sum)
+```
+
+The top of worst event for crop is "DROUGHT".
+
+Sum up of those results, and calcurate total economic effect for each event types.
+```{r barplot_total_effect_for_ecconomic, echo=TRUE}
+#merge prop and crop data
+total_effect <- merge(prop_sum, crop_sum)
+total_effect$total_sum <- total_effect$PROPDMG2 + total_effect$CROPDMG2
+sort5<- order(total_effect$total_sum, decreasing = TRUE)
+Ordered_total_effect <-total_effect[sort5,]
+
+#make barplot
+barplot(head(Ordered_total_effect$total_sum), names.arg = head(Ordered_total_effect$EVTYPE), cex.names = 0.5, main="Top harmful event for economic")
+```
+In conclusion, "FLOOD"is most harmful event for economic.
+
